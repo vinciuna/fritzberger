@@ -30,6 +30,8 @@ wbpg_list <- data.frame(links = uk_container %>% map_chr(html_attr, 'href'),
   filter(is.na(subitems)) %>%
   pull(links)
 #          !str_detect(links, "https://www.fritz-berger.de/[^\\/]+/$")) %>%
+pb <- txtProgressBar(min=0, max=length(wbpg_list))
+getTxtProgressBar(pb)
 
 foreach::foreach(i = seq_along(wbpg_list)) %do% {
   wbpg_ <- wbpg_list[[i]]
@@ -47,6 +49,7 @@ foreach::foreach(i = seq_along(wbpg_list)) %do% {
   } else {
     pagination <- wbpg_
   }
+  setTxtProgressBar(pb, i)
 
   foreach(j = seq_along(pagination)) %do% {
     wbpg_ <- pagination[[j]]
@@ -79,7 +82,7 @@ foreach::foreach(i = seq_along(wbpg_list)) %do% {
   }
 
 }
-
+close(pb)
 fwrite(products, output_file_csv, append = F, sep="\t", col.names = T, showProgress = T)
 
 

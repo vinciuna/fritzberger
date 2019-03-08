@@ -3,11 +3,12 @@ if(!require(pacman)) install.packages("pacman")
 
 pacman::p_load(
   tidyverse, data.table, stringr, lubridate, xml2, tm, varhandle,
-  foreach, magrittr, RCurl, ssh, devtools, rvest, robotstxt)
+  foreach, magrittr, RCurl, ssh, devtools, rvest)
 
 products <- data.frame(NULL, stringsAsFactors = F)
 descriptions <- data.frame(NULL, stringsAsFactors = F)
 prod <- data.frame(NULL, stringsAsFactors = F)
+descr <- data.frame(NULL, stringsAsFactors = F)
 #-----------------
 
 wbpg_main <- "https://www.fritz-berger.de/"
@@ -18,8 +19,8 @@ output_file_csv_descriptions <-  paste0("./data/", str_extract(wbpg_main, "(?<=w
 
 if (file.exists(output_file_csv_prices)) file.remove(output_file_csv_prices)
 
-rtxt <- robotstxt::get_robotstxt(domain = wbpg_main)
-rtxt
+# rtxt <- robotstxt::get_robotstxt(domain = wbpg_main)
+# rtxt
 # paths_allowed(paths = "/", domain = wbpg_main, bot = "*",
 #               user_agent = utils::sessionInfo()$R.version$version.string,
 #               warn = TRUE, force = FALSE,
@@ -90,15 +91,30 @@ foreach::foreach(i = seq_along(wbpg_list)) %do% {
       #str_extract('\\d+\\.\\d+(?=\\s$)') %>%
       map_if(is.character, as.numeric)
 
+    prod.rates.votes <- uk_description %>%
+      html_nodes(xpath='//a//div[@class="product-rating"]') %>%
+      map(html_text) %>%
+    str_replace_all('[\n€\\.\\(\\)]|(\\s{2,})|(\\s+$)', '') %>%
+      as.integer()
 
-    prod <-  data.frame(prod.name, prod.link, prod.price,
+    prod.rates.stars <- uk_description %>%
+      html_nodes(xpath='//a//div[@class="product-rating"]') %>%
+      map(html_nodes, xpath='.//i') %>%
+      map(str_count, 'uk-icon-star rating-empty') %>%
+      map(., ~ 5 - sum(.)) %>% as.integer()
+    #
+
+    prod <-  data.frame(prod.name,
+                        prod.link,
+                        prod.price,
+                        prod.rates.votes,
+                        prod.rates.stars,
                         wbpg_link = str_extract(wbpg_, "(?<=de/)[\\w\\d\\-\\_\\/]+(?=(\\/$|\\/?))"),
                         time_ = today(),
                         stringsAsFactors = F)
 
     products <- products %>% bind_rows(prod)
     products <- distinct_all(products)
-
 
   }
   descr <- data.frame(wbpg_full= wbpg_, class.descr,
@@ -113,7 +129,7 @@ foreach::foreach(i = seq_along(wbpg_list)) %do% {
 
 close(pb)
 fwrite(products, output_file_csv_prices, append = F, sep="\t", col.names = T, showProgress = T)
-fwrite(descriptions, output_file_csv_descritions, append = F, sep="\t", col.names = T, showProgress = T)
+fwrite(descriptions, output_file_csv_descriptions, append = F, sep="\t", col.names = T, showProgress = T)
 
 
 
